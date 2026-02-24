@@ -284,6 +284,7 @@
 // Quick menu and upload handler
 (function(){
   const quickBtn = document.getElementById('quickMenuBtn');
+  const cameraBtn = document.getElementById('cameraBtn');
   const quickMenu = document.getElementById('quickMenu');
   const quickItems = quickMenu ? quickMenu.querySelectorAll('.quick-item') : [];
   const fileInput = document.getElementById('imageUploadInput');
@@ -312,6 +313,12 @@
     quickBtn.addEventListener('click', (e) => {
       console.debug('[image.js] quickMenuBtn clicked');
       e.stopPropagation();
+      // Default click: open file picker directly for quick upload.
+      // Hold Shift while clicking to open the quick menu instead.
+      if (!e.shiftKey && fileInput) {
+        fileInput.click();
+        return;
+      }
       const open = quickMenu && quickMenu.style.display === 'block';
       showQuickMenu(!open);
       if (!open) {
@@ -320,6 +327,27 @@
         quickMenu.style.top = (rect.bottom + window.scrollY + 8) + 'px';
         quickMenu.style.left = (rect.left + window.scrollX) + 'px';
       }
+    });
+  }
+
+  // Dedicated camera button: open modal and start camera (user gesture)
+  if (cameraBtn) {
+    cameraBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const camModal = document.getElementById('cameraModal');
+      if (camModal) camModal.style.display = 'flex';
+      // start camera immediately (user gesture)
+      try {
+        if (window.__worm_startCamera) window.__worm_startCamera();
+        else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          const vid = document.getElementById('cameraVideo');
+          if (vid) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+              .then(stream => { vid.srcObject = stream; vid.play().catch(()=>{}); window.__worm_cameraStream = stream; })
+              .catch(err => { console.warn('Camera permission denied or error', err); const chatLogEl = document.getElementById('chatLog'); if (chatLogEl) { const tmp = document.createElement('div'); tmp.className = 'message ai-message'; tmp.innerHTML = '<div class="message-bubble"><div class="message-content"><p>Kamera tidak diizinkan atau tidak tersedia.</p></div></div>'; chatLogEl.appendChild(tmp); chatLogEl.scrollTop = chatLogEl.scrollHeight; } });
+          }
+        }
+      } catch (err) { console.warn(err); }
     });
   }
 
