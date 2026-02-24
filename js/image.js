@@ -323,28 +323,31 @@
     takePhotoBtn.addEventListener('click', (e) => {
       const dataUrl = capturePhoto();
       if (!dataUrl) return;
-      // create pending preview inside chat so user can add caption before sending
-      createPendingUploadPreview(dataUrl, 'camera.jpg', async ({ base64, filename, prompt }) => {
-        const resp = await fetch('/api/analyze_image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, filename: filename, prompt })
-        });
-        if (!resp.ok) {
-          const t = await resp.text().catch(() => 'Server error');
-          appendMessage('Analisis gagal: ' + t, false);
-          throw new Error('send-failed');
-        }
-        const json = await resp.json();
-        const summary = json.summaryText || (json.resultText || '') || (json.message || 'Tidak ada hasil');
-        appendMessage(summary, false);
-        // close modal and stop camera after successful send
-        if (cameraModal) cameraModal.style.display = 'none';
-        stopCamera();
-      });
+      // show preview
+      cameraPreview.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.style.width = '100%';
+      img.style.borderRadius = '8px';
+      cameraPreview.appendChild(img);
+      if (sendPhotoBtn) sendPhotoBtn.style.display = 'inline-block';
     });
   }
-  // sendPhotoBtn is no longer used for sending because we use pending preview with caption.
+
+  if (sendPhotoBtn) {
+    sendPhotoBtn.addEventListener('click', async (e) => {
+      const img = cameraPreview.querySelector('img');
+      if (!img) return;
+      await sendCaptured(img.src);
+      // hide send button after send
+      sendPhotoBtn.style.display = 'none';
+      // clear preview
+      cameraPreview.innerHTML = '';
+      // close modal and stop camera
+      if (cameraModal) cameraModal.style.display = 'none';
+      stopCamera();
+    });
+  }
 
   if (closeCameraModal) {
     closeCameraModal.addEventListener('click', (e) => {
