@@ -1,0 +1,8 @@
+/*Penambahan file baru css agar ga puyeng liat indexx html jadi 1 - versaagonon*/
+
+@import url('variables.css');
+@import url('layout.css');
+@import url('header.css');
+@import url('components.css');
+@import url('history.css');
+@import url('responsive.css');

@@ -1,0 +1,42 @@
+:root {
+  --bg-1: #3b0000;
+  --bg-2: #050203;
+  --accent-1: linear-gradient(90deg, #ff2b2b, #7a0000);
+  --card: rgba(255, 255, 255, 0.03);
+  --glass: rgba(255, 255, 255, 0.03);
+  --muted: #b9a9a9;
+  --success: #ffb3b3;
+  --danger: #ff6b6b;
+  --text-primary: #e6eef8;
+  --text-secondary: #b9a9a9;
+  --border-color: rgba(255, 255, 255, 0.04);
+  --shadow: 0 10px 40px rgba(2, 6, 23, 0.6);
+}
+
+body[data-theme="dark"] {
+  background: radial-gradient(
+      1000px 500px at 10% 10%,
+      rgba(12, 34, 78, 0.25),
+      transparent
+    ),
+    radial-gradient(
+      800px 400px at 90% 90%,
+      rgba(129, 20, 255, 0.05),
+      transparent
+    ),
+    linear-gradient(180deg, var(--bg-1), var(--bg-2));
+  color: var(--text-primary);
+}
+
+/* small helpers to align with login theme */
+.theme-card {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0.01)
+  );
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+}
