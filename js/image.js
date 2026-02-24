@@ -340,8 +340,27 @@
         const camModal = document.getElementById('cameraModal');
         if (camModal) {
           camModal.style.display = 'flex';
-          // start camera stream if implemented
-          try { window.__worm_startCamera && window.__worm_startCamera(); } catch(e) { console.warn(e); }
+          // Try to start camera stream. Prefer the exposed starter, fallback to direct getUserMedia.
+          try {
+            if (window.__worm_startCamera) {
+              window.__worm_startCamera();
+            } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              // find video element inside modal and start stream
+              const vid = document.getElementById('cameraVideo');
+              if (vid) {
+                // inform user that permission will be requested
+                const chatLogEl = document.getElementById('chatLog');
+                if (chatLogEl) {
+                  const tmp = document.createElement('div'); tmp.className = 'message ai-message'; tmp.innerHTML = '<div class="message-bubble"><div class="message-content"><p>Mengaktifkan kamera — izinkan akses saat diminta oleh browser.</p></div></div>';
+                  chatLogEl.appendChild(tmp);
+                  chatLogEl.scrollTop = chatLogEl.scrollHeight;
+                }
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+                  .then(stream => { vid.srcObject = stream; vid.play().catch(()=>{}); window.__worm_cameraStream = stream; })
+                  .catch(err => { console.warn('Camera permission denied or error', err); });
+              }
+            }
+          } catch(e) { console.warn(e); }
         }
       } else {
         appendMessage('Menu: ' + action + ' clicked (belum diimplementasikan)', true);
@@ -355,45 +374,60 @@
       const f = e.target.files && e.target.files[0];
       if (!f) return;
 
-      // show preview as user message
-      const reader = new FileReader();
-      reader.onload = async function(ev) {
-        console.debug('[image.js] file reader loaded', f.name);
-        const dataUrl = ev.target.result;
-        const imgHtml = `<img src="${dataUrl}" style="max-width:220px;border-radius:8px;display:block;margin-bottom:6px;">`;
-        appendMessage(imgHtml, true);
+      // If file is an image, show preview and send to analyze_image
+      if (f.type && f.type.indexOf('image/') === 0) {
+        const reader = new FileReader();
+        reader.onload = async function(ev) {
+          console.debug('[image.js] image file reader loaded', f.name);
+          const dataUrl = ev.target.result;
+          const imgHtml = `<img src="${dataUrl}" style="max-width:220px;border-radius:8px;display:block;margin-bottom:6px;">`;
+          appendMessage(imgHtml, true);
 
-        // send base64 (without prefix)
-        const base64 = (dataUrl.indexOf(',') !== -1) ? dataUrl.split(',')[1] : dataUrl;
+          // send base64 (without prefix)
+          const base64 = (dataUrl.indexOf(',') !== -1) ? dataUrl.split(',')[1] : dataUrl;
 
-        // show temporary progress
-        appendMessage('Mengirim gambar ke server untuk analisis...', false);
+          // show temporary progress
+          appendMessage('Mengirim gambar ke server untuk analisis...', false);
 
-        try {
-          const resp = await fetch('/api/analyze_image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64, filename: f.name })
-          });
+          try {
+            const resp = await fetch('/api/analyze_image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: base64, filename: f.name })
+            });
 
-          console.debug('[image.js] POST /api/analyze_image sent, awaiting response...');
+            console.debug('[image.js] POST /api/analyze_image sent, awaiting response...');
 
-          if (!resp.ok) {
-            const t = await resp.text().catch(() => 'Server error');
-            appendMessage('Analisis gagal: ' + t, false);
-            return;
+            if (!resp.ok) {
+              const t = await resp.text().catch(() => 'Server error');
+              appendMessage('Analisis gagal: ' + t, false);
+              return;
+            }
+
+            const json = await resp.json();
+            // format summary
+            const summary = json.summaryText || (json.resultText || '') || (json.message || 'Tidak ada hasil');
+            appendMessage(summary, false);
+          } catch (err) {
+            console.error('Upload failed', err);
+            appendMessage('Gagal mengirim gambar: ' + (err.message || err), false);
           }
+        };
+        reader.readAsDataURL(f);
+      } else if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) {
+        // For PDFs, display a download/open link. PDF analysis isn't performed by /api/analyze_image.
+        const url = URL.createObjectURL(f);
+        const linkHtml = `<a href="${url}" target="_blank" style="display:inline-block;padding:8px;border-radius:8px;background:var(--bg-card-light);">📄 ${f.name}</a>`;
+        appendMessage(linkHtml, true);
+        appendMessage('PDF diterima. Analisis PDF tidak didukung oleh pemindaian gambar otomatis.', false);
+      } else {
+        // Other file types: show link
+        const url = URL.createObjectURL(f);
+        const linkHtml = `<a href="${url}" target="_blank" style="display:inline-block;padding:8px;border-radius:8px;background:var(--bg-card-light);">📁 ${f.name}</a>`;
+        appendMessage(linkHtml, true);
+        appendMessage('File diterima. Jenis file ini tidak dianalisis otomatis.', false);
+      }
 
-          const json = await resp.json();
-          // format summary
-          const summary = json.summaryText || (json.resultText || '') || (json.message || 'Tidak ada hasil');
-          appendMessage(summary, false);
-        } catch (err) {
-          console.error('Upload failed', err);
-          appendMessage('Gagal mengirim gambar: ' + (err.message || err), false);
-        }
-      };
-      reader.readAsDataURL(f);
       // reset input so same file can be selected again
       fileInput.value = '';
     });
