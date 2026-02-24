@@ -1,71 +1,5 @@
 // Simple serverless image analysis using Google Cloud Vision REST API
-// Supports multiple API keys via VISION_API_KEYS (comma/semicolon separated)
 // Expects POST JSON: { image: '<base64 string>', filename: 'optional' }
-
-// In-memory round-robin index (module-level so it persists across invocations when possible)
-let __vision_key_index = 0;
-
-function parseVisionKeys() {
-  const raw = process.env.VISION_API_KEYS || process.env.VISION_API_KEY || process.env.GOOGLE_CLOUD_VISION_API_KEY || '';
-  if (!raw) return [];
-  // Split by comma or semicolon and clean
-  const parts = raw.split(/[;,\s]+/).map(s => (s||'').trim()).filter(Boolean);
-  // If VISION_API_KEY provided separately (not in VISION_API_KEYS), ensure it's included
-  const single = process.env.VISION_API_KEY || process.env.GOOGLE_CLOUD_VISION_API_KEY;
-  if (single && parts.indexOf(single) === -1) parts.push(single);
-  return parts;
-}
-
-async function tryRequestWithRotation(requestBody) {
-  const keys = parseVisionKeys();
-  if (!keys || keys.length === 0) throw new Error('no-vision-keys');
-
-  const errors = [];
-  const attempts = keys.length;
-
-  for (let i = 0; i < attempts; i++) {
-    const idx = (__vision_key_index++ % keys.length + keys.length) % keys.length;
-    const key = keys[idx];
-    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(key)}`;
-
-    try {
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!r.ok) {
-        const txt = await r.text().catch(() => 'Vision API error');
-        errors.push({ keyIndex: idx, status: r.status, body: txt });
-        // Retry for server/quota errors (429, 500, 502, 503). For other errors, stop and return.
-        if ([429, 500, 502, 503].includes(r.status)) {
-          // try next key
-          continue;
-        } else {
-          // Non-retriable - return this error immediately
-          const err = new Error('vision-error');
-          err.status = r.status;
-          err.body = txt;
-          throw err;
-        }
-      }
-
-      const data = await r.json();
-      return { data, usedKeyIndex: idx, errors };
-    } catch (err) {
-      // Network or thrown error - record and try next key
-      errors.push({ keyIndex: idx, error: String(err) });
-      // continue to next key
-      continue;
-    }
-  }
-
-  // if we get here, all keys failed
-  const e = new Error('all-vision-keys-failed');
-  e.details = errors;
-  throw e;
-}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -78,7 +12,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Field "image" (base64) is required' });
   }
 
-  // Build request body for Vision API
+  const VISION_KEY = process.env.VISION_API_KEY || process.env.GOOGLE_CLOUD_VISION_API_KEY;
+  if (!VISION_KEY) {
+    return res.status(500).json({ error: 'Server not configured. Set VISION_API_KEY environment variable.' });
+  }
+
+  // Build request to Google Vision API
+  const url = `https://vision.googleapis.com/v1/images:annotate?key=${VISION_KEY}`;
+
   const requestBody = {
     requests: [
       {
@@ -94,8 +35,18 @@ export default async function handler(req, res) {
   };
 
   try {
-    const result = await tryRequestWithRotation(requestBody);
-    const data = result && result.data ? result.data : null;
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!r.ok) {
+      const txt = await r.text().catch(() => 'Vision API error');
+      return res.status(r.status).json({ error: 'Vision API error', details: txt });
+    }
+
+    const data = await r.json();
     const resp = data && data.responses && data.responses[0] ? data.responses[0] : {};
 
     // Build human friendly summary
@@ -126,16 +77,9 @@ export default async function handler(req, res) {
 
     if (!summary) summary = 'Tidak ada label/objek/teks yang berhasil dideteksi.';
 
-    return res.status(200).json({ filename: filename || null, summaryText: summary, raw: resp, usedKeyIndex: result.usedKeyIndex });
+    return res.status(200).json({ filename: filename || null, summaryText: summary, raw: resp });
   } catch (err) {
     console.error('Vision API request failed', err);
-    if (err && err.message === 'no-vision-keys') {
-      return res.status(500).json({ error: 'Server not configured. Set VISION_API_KEYS or VISION_API_KEY environment variable.' });
-    }
-    if (err && err.details) {
-      return res.status(502).json({ error: 'All vision keys failed', details: err.details });
-    }
-    const msg = String(err && (err.body || err.message || err) );
-    return res.status(500).json({ error: 'Vision request failed', message: msg });
+    return res.status(500).json({ error: 'Vision request failed', message: String(err) });
   }
 }
