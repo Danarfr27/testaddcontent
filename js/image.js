@@ -173,6 +173,88 @@
     chatLog.scrollTop = chatLog.scrollHeight;
   }
 
+  // Create a pending upload preview with caption input and send/cancel controls
+  function createPendingUploadPreview(dataUrl, filename, onSend) {
+    // container message
+    const container = document.createElement('div');
+    container.className = 'message user-message pending-upload';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+
+    const content = document.createElement('div');
+    content.className = 'message-content';
+
+    // image preview
+    const img = document.createElement('img');
+    img.src = dataUrl;
+    img.style.maxWidth = '320px';
+    img.style.display = 'block';
+    img.style.borderRadius = '8px';
+    img.style.marginBottom = '8px';
+    content.appendChild(img);
+
+    // caption textarea
+    const ta = document.createElement('textarea');
+    ta.placeholder = 'Tambahkan caption / prompt sebelum mengirim...';
+    ta.style.width = '100%';
+    ta.style.minHeight = '56px';
+    ta.style.marginBottom = '8px';
+    ta.style.borderRadius = '8px';
+    ta.style.padding = '8px';
+    content.appendChild(ta);
+
+    // controls
+    const controls = document.createElement('div');
+    controls.style.display = 'flex';
+    controls.style.gap = '8px';
+
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'send-btn';
+    sendBtn.textContent = 'Kirim';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'theme-toggle';
+    cancelBtn.textContent = 'Batal';
+
+    controls.appendChild(sendBtn);
+    controls.appendChild(cancelBtn);
+    content.appendChild(controls);
+
+    bubble.appendChild(content);
+    container.appendChild(bubble);
+    chatLog.appendChild(container);
+    chatLog.scrollTop = chatLog.scrollHeight;
+
+    // handlers
+    sendBtn.addEventListener('click', async () => {
+      const caption = (ta.value || '').trim();
+      // show a temporary status
+      const status = document.createElement('div');
+      status.style.marginTop = '8px';
+      status.style.color = 'var(--text-secondary)';
+      status.textContent = 'Mengirim gambar untuk analisis...';
+      content.appendChild(status);
+      sendBtn.disabled = true;
+      cancelBtn.disabled = true;
+      try {
+        await onSend({ base64: (dataUrl.indexOf(',') !== -1) ? dataUrl.split(',')[1] : dataUrl, filename, prompt: caption });
+        // remove pending container on success
+        container.remove();
+      } catch (err) {
+        status.textContent = 'Gagal mengirim: ' + (err && err.message ? err.message : String(err));
+        sendBtn.disabled = false;
+        cancelBtn.disabled = false;
+      }
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      container.remove();
+      // revoke object url if used
+      if (dataUrl && dataUrl.startsWith('blob:')) URL.revokeObjectURL(dataUrl);
+    });
+  }
+
   async function startCamera(){
     if (!cameraVideo) return;
     try {
@@ -241,31 +323,28 @@
     takePhotoBtn.addEventListener('click', (e) => {
       const dataUrl = capturePhoto();
       if (!dataUrl) return;
-      // show preview
-      cameraPreview.innerHTML = '';
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      img.style.width = '100%';
-      img.style.borderRadius = '8px';
-      cameraPreview.appendChild(img);
-      if (sendPhotoBtn) sendPhotoBtn.style.display = 'inline-block';
+      // create pending preview inside chat so user can add caption before sending
+      createPendingUploadPreview(dataUrl, 'camera.jpg', async ({ base64, filename, prompt }) => {
+        const resp = await fetch('/api/analyze_image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64, filename: filename, prompt })
+        });
+        if (!resp.ok) {
+          const t = await resp.text().catch(() => 'Server error');
+          appendMessage('Analisis gagal: ' + t, false);
+          throw new Error('send-failed');
+        }
+        const json = await resp.json();
+        const summary = json.summaryText || (json.resultText || '') || (json.message || 'Tidak ada hasil');
+        appendMessage(summary, false);
+        // close modal and stop camera after successful send
+        if (cameraModal) cameraModal.style.display = 'none';
+        stopCamera();
+      });
     });
   }
-
-  if (sendPhotoBtn) {
-    sendPhotoBtn.addEventListener('click', async (e) => {
-      const img = cameraPreview.querySelector('img');
-      if (!img) return;
-      await sendCaptured(img.src);
-      // hide send button after send
-      sendPhotoBtn.style.display = 'none';
-      // clear preview
-      cameraPreview.innerHTML = '';
-      // close modal and stop camera
-      if (cameraModal) cameraModal.style.display = 'none';
-      stopCamera();
-    });
-  }
+  // sendPhotoBtn is no longer used for sending because we use pending preview with caption.
 
   if (closeCameraModal) {
     closeCameraModal.addEventListener('click', (e) => {
@@ -408,38 +487,23 @@
         reader.onload = async function(ev) {
           console.debug('[image.js] image file reader loaded', f.name);
           const dataUrl = ev.target.result;
-          const imgHtml = `<img src="${dataUrl}" style="max-width:220px;border-radius:8px;display:block;margin-bottom:6px;">`;
-          appendMessage(imgHtml, true);
-
-          // send base64 (without prefix)
-          const base64 = (dataUrl.indexOf(',') !== -1) ? dataUrl.split(',')[1] : dataUrl;
-
-          // show temporary progress
-          appendMessage('Mengirim gambar ke server untuk analisis...', false);
-
-          try {
+          // create pending preview with caption input
+          createPendingUploadPreview(dataUrl, f.name, async ({ base64, filename, prompt }) => {
+            // perform actual send
             const resp = await fetch('/api/analyze_image', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: base64, filename: f.name })
+              body: JSON.stringify({ image: base64, filename: filename, prompt })
             });
-
-            console.debug('[image.js] POST /api/analyze_image sent, awaiting response...');
-
             if (!resp.ok) {
               const t = await resp.text().catch(() => 'Server error');
               appendMessage('Analisis gagal: ' + t, false);
-              return;
+              throw new Error('send-failed');
             }
-
             const json = await resp.json();
-            // format summary
             const summary = json.summaryText || (json.resultText || '') || (json.message || 'Tidak ada hasil');
             appendMessage(summary, false);
-          } catch (err) {
-            console.error('Upload failed', err);
-            appendMessage('Gagal mengirim gambar: ' + (err.message || err), false);
-          }
+          });
         };
         reader.readAsDataURL(f);
       } else if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) {
