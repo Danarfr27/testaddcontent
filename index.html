@@ -1,0 +1,187 @@
+<!-- perubahan index.html index html singgle file -versaagonon -->
+
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WORM AI - V1.5</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/chat.css">
+  <link rel="stylesheet" href="/css/strider-theme.css">
+  <link rel="stylesheet" href="/css/theme-worm.css">
+</head>
+
+<body data-theme="dark" style="display:none">
+  <script src="/js/auth.js"></script>
+  <script src="/js/auth-guard.js"></script>
+
+  <!-- Main logic -->
+  <script type="module" src="/js/app.js"></script>
+
+  <!-- Background particles -->
+  <div class="particles" id="particles"></div>
+  <!-- Top-left history dropdown -->
+  <div class="history-dropdown" id="historyDropdown">
+    <button id="historyDropdownBtn" class="theme-toggle" aria-expanded="false">Obrolan ▾</button>
+    <div id="historyDropdownList" class="history-dropdown-list" aria-label="Daftar obrolan"></div>
+  </div>
+
+
+  <!-- Top-right controls (theme + portfolio) -->
+  <div class="top-controls">
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" id="themeToggle">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path
+          d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z" />
+      </svg>
+    </button>
+
+    <!-- QR Button -->
+    <button class="theme-toggle qr-btn" id="qrBtn" title="QR"
+      style="width:36px;height:36px;padding:6px;margin-left:8px;border-radius:8px;display:flex;align-items:center;justify-content:center;"
+      onclick="window.open('https://qr-firdhan.vercel.app/','_blank')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path
+          d="M3 3h8v8H3zM5 5v4h4V5zM13 3h8v8h-8zM15 5v4h4V5zM3 13h8v8H3zM5 15v4h4v-4zM11 11h2v2h-2zM17 13h2v2h-2zM11 17h2v2h-2zM17 17h2v2h-2z" />
+      </svg>
+    </button>
+
+    <!-- Logout -->
+    <button class="theme-toggle" id="logoutBtn" title="Logout" style="margin-left:8px;">OUT</button>
+    <button class="theme-toggle" id="clearHistoryBtn" title="Clear history" style="margin-left:8px;">EndChat</button>
+  </div>
+
+  <!-- Main Container -->
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1 class="main-title">WORM AI</h1>
+      <div class="header-portfolio">
+        </a>
+      </div>
+      <p class="subtitle">Tools V1.5</p>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-item">
+        <div class="status-dot"></div>
+        <span>Status: <strong>Online</strong></span>
+        <span>Model Ai: <strong>WormGpt</strong></span>
+      </div>
+      <div class="status-item">
+        <span>Memory: <strong>Active</strong></span>
+      </div>
+    </div>
+
+    <!-- Chat Container -->
+    <div class="chat-container">
+      <!-- Chat Log -->
+      <div class="chat-log" id="chatLog"></div>
+
+      <!-- Typing Indicator -->
+      <div class="typing-indicator" id="typingIndicator">
+        <div class="typing-animation">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="input-area">
+        <div class="input-left" style="display:flex;align-items:flex-end;margin-right:8px;">
+          <button id="quickMenuBtn" title="Tambah" class="theme-toggle" style="width:44px;height:44px;border-radius:44px;display:flex;align-items:center;justify-content:center;margin-right:6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z"/></svg>
+          </button>
+          <div id="quickMenu" style="display:none;position:absolute;z-index:2200;background:var(--bg-card);border-radius:10px;padding:8px;box-shadow:var(--shadow);min-width:220px;">
+            <div class="quick-item" data-action="upload" style="padding:10px;cursor:pointer;border-radius:6px;">📎 Tambah foto & file</div>
+            <div class="quick-item" data-action="camera" style="padding:10px;cursor:pointer;border-radius:6px;">📷 Ambil foto (kamera)</div>
+            <div class="quick-item" data-action="generate" style="padding:10px;cursor:pointer;border-radius:6px;">🖼️ Buat gambar</div>
+            <div class="quick-item" data-action="think" style="padding:10px;cursor:pointer;border-radius:6px;">💡 Berpikir</div>
+            <div class="quick-item" data-action="research" style="padding:10px;cursor:pointer;border-radius:6px;">🔎 Riset mendalam</div>
+            <div class="quick-item" data-action="shop" style="padding:10px;cursor:pointer;border-radius:6px;">🛒 Belanja cerdas</div>
+            <div class="quick-item" data-action="more" style="padding:10px;cursor:pointer;border-radius:6px;">⋯ Lainnya</div>
+          </div>
+          <input type="file" id="imageUploadInput" accept="image/*" style="display:none">
+        </div>
+        <div class="input-wrapper">
+          <textarea class="chat-input" id="chatInput" placeholder="Apa yang ingin anda tanyakan..." autocomplete="off"
+            rows="1"></textarea>
+        </div>
+        <button class="send-btn" id="sendBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image generation modal -->
+  <div id="imageModal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;align-items:center;justify-content:center;padding:20px;">
+    <div
+      style="background:var(--bg-card);border-radius:12px;padding:18px;max-width:720px;width:100%;box-shadow:var(--shadow);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <strong>Generate Image</strong>
+        <button id="closeImageModal" class="theme-toggle" style="padding:6px 10px;">Close</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <input id="imagePrompt"
+          placeholder="Tuliskan deskripsi gambar (contoh: pemandangan pegunungan saat matahari terbenam)"
+          style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card-light);color:var(--text-primary);">
+        <input id="imageModel" list="modelSuggestions" placeholder="gemini-2.5-flash-image (optional)"
+          style="width:260px;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card-light);color:var(--text-primary);">
+        <datalist id="modelSuggestions">
+          <option value="gemini-2.5-flash-image"></option>
+          <option value="gemini-1.5-image"></option>
+          <option value="gpt-image-1"></option>
+        </datalist>
+        <select id="imageSize"
+          style="width:140px;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card-light);color:var(--text-primary);">
+          <option value="512x512">512x512</option>
+          <option value="768x768">768x768</option>
+          <option value="1024x1024" selected>1024x1024</option>
+        </select>
+        <button id="generateImageBtn" class="send-btn" style="padding:10px 14px;height:auto;">Generate</button>
+      </div>
+      <div id="imageProgress" style="margin-bottom:10px;color:var(--text-secondary);display:none;">Generating...</div>
+      <div id="imageResults" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div class="notification" id="notification">Text copied successfully!</div>
+
+  <!-- Camera capture modal -->
+  <div id="cameraModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2400;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--bg-card);border-radius:12px;padding:12px;max-width:640px;width:100%;box-shadow:var(--shadow);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <strong>Ambil Foto untuk Dipindai</strong>
+        <div>
+          <button id="closeCameraModal" class="theme-toggle" style="padding:6px 10px;margin-right:8px;">Close</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
+        <video id="cameraVideo" autoplay playsinline style="width:100%;max-height:420px;border-radius:8px;background:#000"></video>
+        <canvas id="cameraCanvas" style="display:none"></canvas>
+        <div style="display:flex;gap:8px;">
+          <button id="takePhotoBtn" class="send-btn">Ambil Foto</button>
+          <button id="sendPhotoBtn" class="send-btn" style="display:none">Kirim untuk Analisis</button>
+        </div>
+        <div id="cameraPreview" style="width:100%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/image.js"></script>
+  <!-- app.js already loaded as module near top; avoid duplicate non-module include -->
+</body>
+
+</html>
